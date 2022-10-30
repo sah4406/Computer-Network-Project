@@ -1,0 +1,139 @@
+#SERVER
+from os import close
+import socket
+import os
+import datetime
+import select
+
+FORMAT = "utf-8"
+SEPARATOR = "<SEPARATOR>"
+
+
+def gettime():
+    dt = datetime.datetime.now()
+    time = "(" + dt.strftime("%X") + ")\033[0m: "
+    return (time)
+
+def main():
+    try:
+        port = 2307
+        host = "0.0.0.0"
+        # Creating the socket
+        serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print("->Socket has been successfully created!")
+    except socket.error as m1:
+        print("\033[0m->Socket could not be created....\033[91mERROR:- " + str(m1))
+        exit()
+
+    try:
+        serversocket.bind((host, port))
+        serversocket.listen(10)
+        print("->Socket was successfully Binded\n Server is now waiting for the client to connect")
+    except socket.error as m2:
+        print("->Socket could not bind.... \033[91mERROR:- " + str(m2))
+    connection, clientAddress = serversocket.accept()
+    print("->Connected to Client with IP:" + clientAddress[0] + "and Port:" + str(clientAddress[1]))
+    dt = datetime.datetime.now()
+    date = "<<< " + dt.strftime("%a") + "(" + dt.strftime("%x") + ") >>>"
+    print("\033[37m", date)    
+    while True:            
+        try:
+            recievedMsg = str(connection.recv(1024), FORMAT)  # Server initially waits for client's message
+        except socket.error:
+            time = gettime()
+            print(f"\033[37m{time}\033[0m \033[31mClient has left :(")
+            connection, address = serversocket.accept()
+            print("\033[37m", date)
+            time = gettime()
+            print(f"\033[37m{time}\033[0m \033[01mClient has joined again!!!")
+            continue
+        
+        time, clientMsg = recievedMsg.split(SEPARATOR)
+        print(f"\033[0mClient\033[37m{time}\033[36m{clientMsg}", end="\n")
+        if clientMsg.lower() == "end":  # If client's msg is end, then server waits for client to reconnect (Temporarily close connection)
+            time = gettime()
+            print(f"\033[37m{time} \033[31mClient disconnected.... ")
+            connection, address = serversocket.accept()
+            dt = datetime.datetime.now()
+            date = "<<< " + dt.strftime("%a") + "(" + dt.strftime("%x") + ") >>>"
+            print("\033[37m", date)
+            time = gettime()
+            print(f"\033[37m{time}\033[0m \033[01mReConnected to Client!!!")
+            continue
+        elif clientMsg.lower() == "$file":  # Client is trying to send the file to the server
+            time = gettime()
+            print(f"\033[37m{time}\033[0mClient is sending file......")
+            fileName = connection.recv(1024).decode(FORMAT)
+            if fileName != "~":  
+                # file can be recieved
+                time = gettime()
+                print(f"\033[37m{time}\033[0mReceiving the filename from Client....")
+                time = gettime()
+                connection.send(f"\033[37m {time}\033[0m{SEPARATOR}Filename received".encode(FORMAT))
+                file = open("rec_" + fileName, "w")
+                fileData = connection.recv(1024).decode(FORMAT)
+                time = gettime()
+                print(f"\033[37m {time}\033[0mReceiving the file data....")
+                file.write(fileData)
+                file.close()
+                time = gettime()
+                print(f"\033[37m \033[01m{time}\033[0m{fileName} was successfully recieved as rec_{fileName}")
+                        
+            else:
+                time = gettime()
+                print(f"\033[37m{time}\033[31mSorry!! File couldn't be recieved")
+        elif clientMsg.lower() == "close": 
+            time = gettime()
+            print(f"\033[37m{time}\033[0m \033[31mClient has left :(")
+            connection, address = serversocket.accept()
+            print("\033[37m", date)
+            time = gettime()
+            print(f"\033[37m{time}\033[0m \033[01mClient has joined again!!!")
+            continue  
+     
+        time = gettime()
+        serverMsg = input("\033[0mServer: ")
+
+        serverMsgNew = time + SEPARATOR + serverMsg
+        if len(str.encode(serverMsg)) > 0:
+            try:
+                connection.send(str.encode(serverMsgNew))
+                time = gettime()
+                print(f"\033[0m\033[37mMessage was sent at {time}>\033[0m")
+            except socket.error:
+                time = gettime()
+                print(f"\033[37m{time}\033[0m \033[31mClient has left :(")
+                connection, address = serversocket.accept()
+                print("\033[37m", date)
+                time = gettime()
+                print(f"\033[37m{time}\033[0m \033[01mClient has joined again!!!")
+                continue
+            
+
+        if serverMsg.lower() == "$file":  # Send File from server
+            flag = 1
+            print("File Transfer Mode(.txt|.py|.c|.cpp|.java)")
+            while True:
+                fileName = input("\033[92m \033[01mPlease enter File Name: ")
+                if(fileName == "~"):
+                    print(f"\033[37m{time}\033[31mFile transfer Cancelled!!\033[31m")
+                    connection.send("~".encode(FORMAT))
+                    flag = 0
+                    break
+                if os.path.isfile(fileName) and (fileName.endswith('.txt') or fileName.endswith('.java') or fileName.endswith('.cpp') or fileName.endswith('.c') or fileName.endswith('.py')):
+                    connection.send(fileName.encode(FORMAT))
+                    break
+                print("\033[31mError! File doesn't exist :( Try again or enter '~' to cancel\n")  
+            if flag:
+                recievedMsg = connection.recv(1024).decode(FORMAT)
+                time, clientMsg = recievedMsg.split(SEPARATOR)
+                print(f"\033[0mClient\033[37m{time}\033[36m{clientMsg}", end="\n")
+                file = open(fileName, "r")
+                fileData = file.read()
+                connection.send(fileData.encode(FORMAT))
+                file.close()
+                time = gettime()
+                print(f"\033[37m \033[01m{time}\033[0m{fileName} was successfully sent : )\n")
+            
+if _name_ == "_main_":
+    main()apacity 

@@ -1,0 +1,111 @@
+#CLIENT
+from os import close
+import socket
+import os
+import datetime
+
+FORMAT = "utf-8"
+SEPARATOR = "<SEPARATOR>"
+
+
+def getTime():
+    dt = datetime.datetime.now()
+    time = "(" + dt.strftime("%X") + ")\033[0m: "
+    return (time)
+
+def main():
+    try:
+        host = "localhost"
+        port = 2307
+        clientSocket = socket.socket()
+        clientSocket.connect((host, port))
+        dt = datetime.datetime.now()
+        date = "<<< " + dt.strftime("%a") + "(" + dt.strftime("%x") + ") >>>"
+        print("\033[37m", date)
+        print("\033[0m \033[04mSuccessfully connected to server!!")
+    except socket.error as m:
+        print(" \033[0m Socket not created, nor connected...\033[91mError:- " + str(m))
+        exit()
+
+    while True:
+        cFlag = 0
+        clientMsg = input("\033[0mClient: ")
+        time = getTime()        
+        print(f"\033[0m\033[37mMessage was sent at {time}>\033[0m")
+        clientMsgNew = time + SEPARATOR + clientMsg
+        if len(str.encode(clientMsg)) > 0:
+            clientSocket.send(str.encode(clientMsgNew))
+        if clientMsg.lower() == "end":  # Client enters end for closing connection with server
+            clientSocket.close()
+            time = getTime()
+            print(f"\033[37m{time}\033[91mYou have closed the connection from server!!!!")
+            print(f"\033[37m{time}\033[91mYou can enter connect to re-establish connection!")
+            while True:
+                clientMsg = input()
+                if clientMsg.lower() == "connect":  # Client enters connect for reconnecting with server
+                    # Recreate the socket
+                    clientSocket = socket.socket()
+                    clientSocket.connect((host, port))
+                    dt = datetime.datetime.now()
+                    date = "<<< " + dt.strftime("%a") + "(" + dt.strftime("%x") + ") >>>"
+                    print("\033[37m", date)
+                    time = getTime()
+                    print(f"\033[37m{time} \033[0m \033[01mYay!!!! Reconnected with server!")
+                    break
+            continue
+        elif clientMsg.lower() == "$file":  # Send File from client
+            print("File Transfer Mode(.txt|.py|.c|.cpp|.java)")
+            flag = 1
+            while True:
+                fileName = input("\033[92m \033[01mPlease enter File Name: ")
+                if(fileName == "~"):
+                    print(f"\033[37m{time}\033[31mFile transfer Cancelled!!\033[31m")
+                    clientSocket.send("~".encode(FORMAT))
+                    flag = 0
+                    break
+                if os.path.isfile(fileName) and (fileName.endswith('.txt') or fileName.endswith('.java') or fileName.endswith('.cpp') or fileName.endswith('.c') or fileName.endswith('.py')):
+                    clientSocket.send(fileName.encode(FORMAT))
+                    break
+                print("\033[31mError! File doesn't exist :( Try again or enter '~' to cancel\n")  
+            if flag:                       
+                recievedMsg = clientSocket.recv(1024).decode(FORMAT)
+                time, serverMsg = recievedMsg.split(SEPARATOR)
+                print(f"\033[0mServer\033[37m{time}\033[93m{serverMsg}", end="\n")
+                file = open(fileName, "r")
+                fileData = file.read()
+                clientSocket.send(fileData.encode(FORMAT))
+                file.close()
+                time = getTime()
+                print(f"\033[37m \033[01m{time}\033[0m{fileName} was successfully sent : )\n") 
+        elif clientMsg.lower() == "close":  # Exit program
+            clientSocket.close()
+            print("\033[31mYou have left the chat, Please re-run program to reconnect: >\n")
+            break
+            
+        recievedMsg = str(clientSocket.recv(1024), FORMAT)
+        time, serverMsg = recievedMsg.split(SEPARATOR)
+        if serverMsg.lower() == "$file":  # Recieve File from server
+            print(f"\033[37m{time}\033[0mServer is sending file......")
+            fileName = clientSocket.recv(1024).decode(FORMAT)
+            if fileName != "~": 
+                # file exists
+                time = getTime()
+                print(f"\033[37m {time}\033[0mReceived the filename from Server....")
+                time = getTime()
+                clientSocket.send(f"\033[0m {time}\033[0m{SEPARATOR}Filename received".encode(FORMAT))
+                file = open("rec_" + fileName, "w")
+                fileData = clientSocket.recv(1024).decode(FORMAT)
+                time = getTime()
+                print(f"\033[37m  {time}\033[0mReceiving the file data....")
+                file.write(fileData)
+                file.close()
+                time = getTime()
+                print(f"\033[37m \033[01m{time}\033[0m{fileName}  was successfully recieved as rec_{fileName}")
+            else:
+                time = getTime()
+                print(f"\033[37m{time}\033[31mSorry!! File couldn't be recieved")  
+        else:
+            print(f"\033[0mServer\033[37m {time}\033[93m{serverMsg}", end="\n")
+
+if _name_ == "_main_":
+    main()
